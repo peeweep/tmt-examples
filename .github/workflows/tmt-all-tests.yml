@@ -52,7 +52,7 @@ jobs:
           fi
 
   run-tests:
-    name: Test plan ${{ matrix.plan.name }}
+    name: ${{ matrix.plan.root }}/plan/${{ matrix.plan.name }}
     needs: discover-plans
     if: ${{ needs.discover-plans.outputs.plans != '[]' }}
     runs-on: ubuntu-latest
