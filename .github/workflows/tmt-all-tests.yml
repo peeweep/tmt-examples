@@ -1,4 +1,4 @@
-name: TMT Tests
+name: TMT All Tests
 
 on:
   push:
@@ -78,14 +78,14 @@ jobs:
           # Change tracking context to the local tmt package working directory
           cd "${{ matrix.plan.root }}"
 
-          # Run the specific plan, saving the output to ./tmt-run-data
-          tmt run -i ./tmt-run-data -a -vv plan --name "^${{ matrix.plan.name }}$"
+          # Run the specific plan, saving the output using a run id
+          tmt run --id tmt-run-data -a -vv plan --name "^${{ matrix.plan.name }}$"
 
       - name: Report tmt tests
         if: always()
         run: |
           cd "${{ matrix.plan.root }}"
-          tmt run -i ./tmt-run-data report -vvv
+          tmt run --id tmt-run-data report -vvv
 
       - name: Sanitize plan name for artifact
         if: always()
@@ -102,4 +102,4 @@ jobs:
         if: always()
         with:
           name: tmt-results-${{ steps.sanitize.outputs.safe_name }}
-          path: ${{ matrix.plan.root }}/tmt-run-data/
+          path: /var/tmp/tmt/tmt-run-data/
