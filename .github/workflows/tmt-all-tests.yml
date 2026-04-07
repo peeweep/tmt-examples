@@ -78,6 +78,12 @@ jobs:
           # Run the specific plan, saving the output to ./tmt-run-data
           tmt run -i ./tmt-run-data -a -vv plan --name "^${{ matrix.plan.name }}$"
 
+      - name: Report tmt tests
+        if: always()
+        run: |
+          cd "${{ matrix.plan.root }}"
+          tmt run -i ./tmt-run-data report -vvv
+
       - name: Sanitize plan name for artifact
         if: always()
         id: sanitize
