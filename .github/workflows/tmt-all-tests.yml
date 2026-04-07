@@ -3,7 +3,8 @@ name: TMT All Tests
 on:
   push:
     branches: [ main, master ]
-  pull_request:
+  # 应该只保留 workflow_dispatch 手动触发，而非每次 push 都触发
+  # workflow_dispatch:
 
 jobs:
   discover-plans:
