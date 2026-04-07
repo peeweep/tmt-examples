@@ -26,22 +26,15 @@ jobs:
           PLANS_ARRAY=()
           
           for root in $TMT_ROOTS; do
-            # For each localized tmt root, find the plan definition files
             if [ -d "$root/plans" ]; then
               fmf_files=$(find "$root/plans" -type f -name "*.fmf")
               for file in $fmf_files; do
-                # Generate a valid plan filter name relative to the tmt root
-                # e.g., root="./pkg" file="./pkg/plans/tier1.fmf" -> "/plans/tier1"
                 rel_path="${file#$root}"
                 if [[ "$rel_path" != /* ]]; then rel_path="/$rel_path"; fi
                 plan_name="${rel_path%.fmf}"
 
-                # Formulate a cleaner display name for the job properties
-                pkg_name=$(basename "$root")
-                short_plan_name="${plan_name#/}"
-
-                # Push an object with the root directory and the resolved plan name
-                PLANS_ARRAY+=("{\"root\": \"$root\", \"name\": \"$plan_name\", \"pkg\": \"$pkg_name\", \"short_name\": \"$short_plan_name\"}")
+                fmf_path="${file#./}"
+                PLANS_ARRAY+=("{\"root\": \"$root\", \"name\": \"$plan_name\", \"fmf_path\": \"$fmf_path\"}")
               done
             fi
           done
@@ -56,7 +49,7 @@ jobs:
           fi
 
   run-tests:
-    name: ${{ matrix.plan.pkg }} ${{ matrix.plan.short_name }}
+    name: ${{ matrix.plan.fmf_path }}
     needs: discover-plans
     if: ${{ needs.discover-plans.outputs.plans != '[]' }}
     runs-on: ubuntu-latest
@@ -95,9 +88,7 @@ jobs:
         if: always()
         id: sanitize
         run: |
-          # Artifact names cannot contain certain characters like '/'
-          # Incorporate the pkg directory into the name if multiple packages have identical plan names
-          RAW_NAME="${{ matrix.plan.pkg }}-${{ matrix.plan.short_name }}"
+          RAW_NAME="${{ matrix.plan.fmf_path }}"
           SAFE_NAME="${RAW_NAME//\//-}"
           echo "safe_name=$SAFE_NAME" >> $GITHUB_OUTPUT
 
