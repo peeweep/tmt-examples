@@ -32,8 +32,8 @@ jobs:
                 rel_path="${file#$root}"
                 if [[ "$rel_path" != /* ]]; then rel_path="/$rel_path"; fi
                 plan_name="${rel_path%.fmf}"
-
-                fmf_path="${file#./}"
+                # Dynamically construct path as "package_name/plans/xxx.fmf" ignoring parent directories like SPECS/
+                fmf_path="$(basename "$root")${rel_path}"
                 PLANS_ARRAY+=("{\"root\": \"$root\", \"name\": \"$plan_name\", \"fmf_path\": \"$fmf_path\"}")
               done
             fi
