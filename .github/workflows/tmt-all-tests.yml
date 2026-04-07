@@ -36,8 +36,12 @@ jobs:
                 if [[ "$rel_path" != /* ]]; then rel_path="/$rel_path"; fi
                 plan_name="${rel_path%.fmf}"
 
+                # Formulate a cleaner display name for the job properties
+                pkg_name=$(basename "$root")
+                short_plan_name="${plan_name#/}"
+
                 # Push an object with the root directory and the resolved plan name
-                PLANS_ARRAY+=("{\"root\": \"$root\", \"name\": \"$plan_name\"}")
+                PLANS_ARRAY+=("{\"root\": \"$root\", \"name\": \"$plan_name\", \"pkg\": \"$pkg_name\", \"short_name\": \"$short_plan_name\"}")
               done
             fi
           done
@@ -52,7 +56,7 @@ jobs:
           fi
 
   run-tests:
-    name: ${{ matrix.plan.root }}/plan/${{ matrix.plan.name }}
+    name: ${{ matrix.plan.pkg }} ${{ matrix.plan.short_name }}
     needs: discover-plans
     if: ${{ needs.discover-plans.outputs.plans != '[]' }}
     runs-on: ubuntu-latest
