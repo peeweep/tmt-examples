@@ -1,0 +1,9 @@
+summary: example2 test
+discover:
+    how: fmf
+    test: /tests/example2
+provision:
+    how: container
+    image: ghcr.io/openruyi-project/creek:latest
+execute:
+    how: tmt
