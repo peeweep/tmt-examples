@@ -96,9 +96,9 @@ jobs:
         id: sanitize
         run: |
           # Artifact names cannot contain certain characters like '/'
-          # Incorporate the root directory into the name if multiple packages have identical plan names
-          RAW_NAME="${{ matrix.plan.root }}-${{ matrix.plan.name }}"
-          SAFE_NAME=$(echo "$RAW_NAME" | tr -c 'a-zA-Z0-9' '-')
+          # Incorporate the pkg directory into the name if multiple packages have identical plan names
+          RAW_NAME="${{ matrix.plan.pkg }}-${{ matrix.plan.short_name }}"
+          SAFE_NAME="${RAW_NAME//\//-}"
           echo "safe_name=$SAFE_NAME" >> $GITHUB_OUTPUT
 
       - name: Upload test logs
