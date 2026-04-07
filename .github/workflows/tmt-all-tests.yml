@@ -21,21 +21,38 @@ jobs:
       - name: Discover plans
         id: set-plans
         run: |
-          # Use tmt plan ls to get all plans, awk to print only the plan name,
-          # and jq to convert the multiline string into a JSON array.
-          PLANS=$(tmt plan ls | awk '{print $1}')
+          # Use find to locate tmt tree roots (.fmf/version) in packages
+          TMT_ROOTS=$(find . -type f -name "version" -path "*/.fmf/version" | sed 's|/\.fmf/version||')
+          PLANS_ARRAY=()
           
-          if [ -z "$PLANS" ]; then
+          for root in $TMT_ROOTS; do
+            # For each localized tmt root, find the plan definition files
+            if [ -d "$root/plans" ]; then
+              fmf_files=$(find "$root/plans" -type f -name "*.fmf")
+              for file in $fmf_files; do
+                # Generate a valid plan filter name relative to the tmt root
+                # e.g., root="./pkg" file="./pkg/plans/tier1.fmf" -> "/plans/tier1"
+                rel_path="${file#$root}"
+                if [[ "$rel_path" != /* ]]; then rel_path="/$rel_path"; fi
+                plan_name="${rel_path%.fmf}"
+
+                # Push an object with the root directory and the resolved plan name
+                PLANS_ARRAY+=("{\"root\": \"$root\", \"name\": \"$plan_name\"}")
+              done
+            fi
+          done
+
+          if [ ${#PLANS_ARRAY[@]} -eq 0 ]; then
             echo "No plans found."
             echo "plans=[]" >> $GITHUB_OUTPUT
           else
-            JSON_PLANS=$(echo "$PLANS" | jq -R -s -c 'split("\n") | map(select(length > 0))')
+            JSON_PLANS=$(printf "%s\n" "${PLANS_ARRAY[@]}" | jq -s -c '.')
             echo "Found plans: $JSON_PLANS"
             echo "plans=$JSON_PLANS" >> $GITHUB_OUTPUT
           fi
 
   run-tests:
-    name: Test plan ${{ matrix.plan }}
+    name: Test plan ${{ matrix.plan.name }}
     needs: discover-plans
     if: ${{ needs.discover-plans.outputs.plans != '[]' }}
     runs-on: ubuntu-latest
@@ -55,15 +72,20 @@ jobs:
       - name: Run tmt tests
         id: tmt-run
         run: |
+          # Change tracking context to the local tmt package working directory
+          cd "${{ matrix.plan.root }}"
+
           # Run the specific plan, saving the output to ./tmt-run-data
-          tmt run -i ./tmt-run-data -a -vv plan --name "^${{ matrix.plan }}$"
+          tmt run -i ./tmt-run-data -a -vv plan --name "^${{ matrix.plan.name }}$"
 
       - name: Sanitize plan name for artifact
         if: always()
         id: sanitize
         run: |
           # Artifact names cannot contain certain characters like '/'
-          SAFE_NAME=$(echo "${{ matrix.plan }}" | tr -c 'a-zA-Z0-9' '-')
+          # Incorporate the root directory into the name if multiple packages have identical plan names
+          RAW_NAME="${{ matrix.plan.root }}-${{ matrix.plan.name }}"
+          SAFE_NAME=$(echo "$RAW_NAME" | tr -c 'a-zA-Z0-9' '-')
           echo "safe_name=$SAFE_NAME" >> $GITHUB_OUTPUT
 
       - name: Upload test logs
@@ -71,4 +93,4 @@ jobs:
         if: always()
         with:
           name: tmt-results-${{ steps.sanitize.outputs.safe_name }}
-          path: ./tmt-run-data/
+          path: ${{ matrix.plan.root }}/tmt-run-data/
