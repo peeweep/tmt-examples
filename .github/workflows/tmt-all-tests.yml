@@ -3,6 +3,8 @@ name: TMT All Tests
 on:
   push:
     branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
   # 应该只保留 workflow_dispatch 手动触发，而非每次 push 都触发
   # workflow_dispatch:
 
@@ -21,12 +23,46 @@ jobs:
 
       - name: Discover plans
         id: set-plans
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          # Use find to locate tmt tree roots (.fmf/version) in packages
-          TMT_ROOTS=$(find . -type f -name "version" -path "*/.fmf/version" | sed 's|/\.fmf/version||')
+          TMT_ROOTS=()
+
+          if [ "$EVENT_NAME" == "pull_request" ]; then
+            echo "Running in PR mode: discovering plans for changed files only..."
+            git fetch origin $BASE_REF
+            CHANGED_FILES=$(git diff --name-only origin/${BASE_REF}...HEAD || git diff --name-only origin/${BASE_REF} HEAD)
+
+            for file in $CHANGED_FILES; do
+              dir=$(dirname "$file")
+              while [ "$dir" != "." ] && [ "$dir" != "/" ] && [ "$dir" != "" ]; do
+                if [ -f "$dir/.fmf/version" ]; then
+                  TMT_ROOTS+=("./$dir")
+                  break
+                fi
+                dir=$(dirname "$dir")
+              done
+              if [ "$dir" == "." ] && [ -f "./.fmf/version" ]; then
+                TMT_ROOTS+=(".")
+              fi
+            done
+          else
+            echo "Running in full mode: discovering all plans..."
+            ROOTS=$(find . -type f -name "version" -path "*/.fmf/version" | sed 's|/\.fmf/version||')
+            for r in $ROOTS; do
+              TMT_ROOTS+=("$r")
+            done
+          fi
+
+          if [ ${#TMT_ROOTS[@]} -eq 0 ]; then
+             UNIQUE_ROOTS=""
+          else
+             UNIQUE_ROOTS=$(printf "%s\n" "${TMT_ROOTS[@]}" | sort -u)
+          fi
+
           PLANS_ARRAY=()
-          
-          for root in $TMT_ROOTS; do
+          for root in $UNIQUE_ROOTS; do
             if [ -d "$root/plans" ]; then
               fmf_files=$(find "$root/plans" -type f -name "*.fmf")
               for file in $fmf_files; do
@@ -41,11 +77,11 @@ jobs:
           done
 
           if [ ${#PLANS_ARRAY[@]} -eq 0 ]; then
-            echo "No plans found."
+            echo "No test plans found or affected by this trigger."
             echo "plans=[]" >> $GITHUB_OUTPUT
           else
             JSON_PLANS=$(printf "%s\n" "${PLANS_ARRAY[@]}" | jq -s -c '.')
-            echo "Found plans: $JSON_PLANS"
+            echo "Plans to run: $JSON_PLANS"
             echo "plans=$JSON_PLANS" >> $GITHUB_OUTPUT
           fi
 
