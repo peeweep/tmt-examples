@@ -11,7 +11,7 @@ rlJournalStart
 
     rlPhaseStartTest
         rlRun "cat /etc/os-release | tee output" 0 "Check os-release"
-        rlAssertGrep "fedora" "output"
+        rlAssertGrep "openruyi" "output"
     rlPhaseEnd
 
     rlPhaseStartCleanup
