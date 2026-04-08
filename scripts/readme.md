@@ -3,9 +3,10 @@
 ```
 $ uv run scripts/export_tmt_results.py \
     --repo "peeweep/tmt-examples" \
-    --run-id 123456789 \
+    --run-id 24086808450 \
     --token "ghp_xxxxxxxxxxxxxxxxxxx" \
-    --output "results_summary.xlsx"
+    --output "results_summary.xlsx" \
+    --download-dir "tmt_artifacts"
 
 Fetching artifacts for peeweep/tmt-examples run 24086808450...
 Found 4 artifacts. Downloading and extracting to tmt_artifacts/ ...
