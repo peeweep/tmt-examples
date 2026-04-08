@@ -5,8 +5,12 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  # 应该只保留 workflow_dispatch 手动触发，而非每次 push 都触发
-  # workflow_dispatch:
+  workflow_dispatch:
+    inputs:
+      target_plan:
+        description: 'Specify a tmt plan to execute (e.g. package1/plans/example1.fmf). Leave empty to run all.'
+        required: false
+        type: string
 
 jobs:
   discover-plans:
@@ -26,10 +30,17 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           BASE_REF: ${{ github.base_ref }}
+          TARGET_PLAN: ${{ github.event.inputs.target_plan }}
         run: |
           TMT_ROOTS=()
 
-          if [ "$EVENT_NAME" == "pull_request" ]; then
+          if [ -n "$TARGET_PLAN" ]; then
+            echo "Target plan specified: $TARGET_PLAN. Discovering all roots to find it..."
+            ROOTS=$(find . -type f -name "version" -path "*/.fmf/version" | sed 's|/\.fmf/version||')
+            for r in $ROOTS; do
+              TMT_ROOTS+=("$r")
+            done
+          elif [ "$EVENT_NAME" == "pull_request" ]; then
             echo "Running in PR mode: discovering plans for changed files only..."
             git fetch origin $BASE_REF
             CHANGED_FILES=$(git diff --name-only origin/${BASE_REF}...HEAD || git diff --name-only origin/${BASE_REF} HEAD)
@@ -71,6 +82,11 @@ jobs:
                 plan_name="${rel_path%.fmf}"
                 # Dynamically construct path as "package_name/plans/xxx.fmf" ignoring parent directories like SPECS/
                 fmf_path="$(basename "$root")${rel_path}"
+                
+                if [ -n "$TARGET_PLAN" ] && [ "$TARGET_PLAN" != "$fmf_path" ]; then
+                  continue
+                fi
+                
                 PLANS_ARRAY+=("{\"root\": \"$root\", \"name\": \"$plan_name\", \"fmf_path\": \"$fmf_path\"}")
               done
             fi
